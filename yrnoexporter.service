@@ -1,0 +1,13 @@
+[Unit]
+Description=Yr.no Prometheus Exporter
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+ExecStart=/opt/krets/yrnoexporter/yrnoexporter.py
+
+[Install]
+WantedBy=multi-user.target

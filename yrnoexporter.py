@@ -61,7 +61,13 @@ class Forecast(object):
         for entry in data:
             timestamp = datetime.strptime(entry['time'], _DATETIME_FMT)
             hours = "%d" % ((timestamp-now).total_seconds() // 60 // 60)
-            for key, val in entry['data']['instant']['details'].items():
+
+            details = entry['data']['instant']['details']
+            try:
+                details.update(entry['data']['next_1_hours']['details'])
+            except KeyError:
+                pass
+            for key, val in details.items():
                 gauge = gauges.get(key)
                 if not gauge:
                     gauge = GaugeMetricFamily("yrno_" + key, key, labels=["hours"])

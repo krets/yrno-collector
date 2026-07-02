@@ -13,7 +13,7 @@ https://api.met.no/weatherapi/locationforecast/2.0/complete?altitude=40&lat=52.5
 
 
 """
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 from pathlib import Path
 import os
 import sys
@@ -96,34 +96,45 @@ class Forecast(object):
         self.params = params
         self.location = location
 
-    def collect(self):
+    def fetch(self):
         res = self.session.get(self.url, params=self.params)
-        data = res.json()['properties']['timeseries']
-        now = datetime.utcnow()
-        gauges = {}
-        for entry in data:
-            timestamp = datetime.strptime(entry['time'], _DATETIME_FMT)
-            hours = "%d" % ((timestamp-now).total_seconds() // 60 // 60)
+        return res.json()['properties']['timeseries']
 
-            details = entry['data']['instant']['details']
-            try:
-                details.update(entry['data']['next_1_hours']['details'])
-            except KeyError:
-                pass
-            for key, val in details.items():
-                gauge = gauges.get(key)
-                if not gauge:
-                    gauge = GaugeMetricFamily("yrno_" + key, key, labels=["hours", "location"])
-                    gauges[key] = gauge
-                gauge.add_metric([hours, self.location], val)
+
+class WeatherCollector(object):
+    """Combines multiple Forecasts into one registry entry, since the
+    registry rejects multiple collectors that describe the same metric names."""
+
+    def __init__(self, forecasts):
+        self.forecasts = forecasts
+
+    def collect(self):
+        now = datetime.now(timezone.utc)
+        gauges = {}
+        for forecast in self.forecasts:
+            for entry in forecast.fetch():
+                timestamp = datetime.strptime(entry['time'], _DATETIME_FMT).replace(tzinfo=timezone.utc)
+                hours = "%d" % ((timestamp-now).total_seconds() // 60 // 60)
+
+                details = entry['data']['instant']['details']
+                try:
+                    details.update(entry['data']['next_1_hours']['details'])
+                except KeyError:
+                    pass
+                for key, val in details.items():
+                    gauge = gauges.get(key)
+                    if not gauge:
+                        gauge = GaugeMetricFamily("yrno_" + key, key, labels=["hours", "location"])
+                        gauges[key] = gauge
+                    gauge.add_metric([hours, forecast.location], val)
         for gauge in gauges.values():
             yield gauge
 
 
 def main():
     start_http_server(PORT)
-    for name, params in LOCATIONS.items():
-        REGISTRY.register(Forecast(name, params=params))
+    forecasts = [Forecast(name, params=params) for name, params in LOCATIONS.items()]
+    REGISTRY.register(WeatherCollector(forecasts))
     while True:
         time.sleep(1)
 

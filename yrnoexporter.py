@@ -22,7 +22,7 @@ from prometheus_client.core import GaugeMetricFamily, REGISTRY
 
 __version__ = "0.2"
 __app__ = "yrno_collector"
-__email__ = "<YOUR_EMAIL@whatever.com>"
+__email__ = "jesse@krets.com"
 HEADERS = {
     'User-Agent': f"{__app__}/{__version__} {__email__}"
 }
@@ -32,6 +32,26 @@ LOCATIONS = {
         "altitude": 40,
         "lat": 52.5,
         "lon": 13.45
+    },
+    "Laconia": {
+        "altitude": 154,
+        "lat": 43.6042,
+        "lon": -71.5001
+    },
+    "Harpenden": {
+        "altitude": 128,
+        "lat": 51.8180,
+        "lon": -0.3510
+    },
+    "NewYorkCity": {
+        "altitude": 10,
+        "lat": 40.7128,
+        "lon": -74.0060
+    },
+    "LosAngeles": {
+        "altitude": 55,
+        "lat": 34.0631,
+        "lon": -118.3455
     }
 }
 _DATETIME_FMT = "%Y-%m-%dT%H:%M:%SZ"
@@ -47,11 +67,12 @@ def convert_datetimes(data):
 
 class Forecast(object):
 
-    def __init__(self, url=URL, params=None):
+    def __init__(self, location, url=URL, params=None):
         self.session = requests_cache.CachedSession(__app__, cache_control=True, expire_after=timedelta(hours=1))
         self.session.headers.update(HEADERS)
         self.url = url
         self.params = params
+        self.location = location
 
     def collect(self):
         res = self.session.get(self.url, params=self.params)
@@ -70,16 +91,17 @@ class Forecast(object):
             for key, val in details.items():
                 gauge = gauges.get(key)
                 if not gauge:
-                    gauge = GaugeMetricFamily("yrno_" + key, key, labels=["hours"])
+                    gauge = GaugeMetricFamily("yrno_" + key, key, labels=["hours", "location"])
                     gauges[key] = gauge
-                gauge.add_metric([hours], val)
+                gauge.add_metric([hours, self.location], val)
         for gauge in gauges.values():
             yield gauge
 
 
 def main():
     start_http_server(PORT)
-    REGISTRY.register(Forecast(params=LOCATIONS["Berlin"]))
+    for name, params in LOCATIONS.items():
+        REGISTRY.register(Forecast(name, params=params))
     while True:
         time.sleep(1)
 

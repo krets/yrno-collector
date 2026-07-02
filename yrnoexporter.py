@@ -55,6 +55,11 @@ LOCATIONS = {
         "altitude": 55,
         "lat": 34.0631,
         "lon": -118.3455
+    },
+    "NewDelhi": {
+        "altitude": 216,
+        "lat": 28.6139,
+        "lon": 77.2090
     }
 }
 _DATETIME_FMT = "%Y-%m-%dT%H:%M:%SZ"

@@ -1,0 +1,11 @@
+services:
+  yrno-exporter:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "9991:9991"
+    volumes:
+      - yrno-cache:/var/cache/yrno_collector
+
+volumes:
+  yrno-cache:

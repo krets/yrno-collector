@@ -14,6 +14,9 @@ https://api.met.no/weatherapi/locationforecast/2.0/complete?altitude=40&lat=52.5
 
 """
 from datetime import timedelta, datetime
+from pathlib import Path
+import os
+import sys
 import time
 
 import requests_cache
@@ -57,6 +60,25 @@ LOCATIONS = {
 _DATETIME_FMT = "%Y-%m-%dT%H:%M:%SZ"
 PORT = 9991
 
+
+def default_cache_dir():
+    """Pick a sane cache location per-OS; override with YRNO_CACHE_DIR."""
+    env_dir = os.environ.get("YRNO_CACHE_DIR")
+    if env_dir:
+        return Path(env_dir)
+    if sys.platform.startswith("linux"):
+        return Path("/var/cache") / __app__
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Caches" / __app__
+    if sys.platform == "win32":
+        return Path(os.environ.get("LOCALAPPDATA", Path.home())) / __app__ / "Cache"
+    return Path.home() / f".{__app__}" / "cache"
+
+
+CACHE_DIR = default_cache_dir()
+CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+
 def convert_datetimes(data):
     new_data = []
     for entry in data:
@@ -68,7 +90,7 @@ def convert_datetimes(data):
 class Forecast(object):
 
     def __init__(self, location, url=URL, params=None):
-        self.session = requests_cache.CachedSession(__app__, cache_control=True, expire_after=timedelta(hours=1))
+        self.session = requests_cache.CachedSession(str(CACHE_DIR / "cache"), cache_control=True, expire_after=timedelta(hours=1))
         self.session.headers.update(HEADERS)
         self.url = url
         self.params = params

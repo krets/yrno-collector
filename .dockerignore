@@ -1,0 +1,6 @@
+.git
+.idea
+.venv
+*.sqlite
+readme.md
+yrnoexporter.service
